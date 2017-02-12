@@ -1,0 +1,28 @@
+// Copyright 2013, Ubimo.com .  All rights reserved.
+// Author: Roman Gershman (roman@ubimo.com)
+//
+syntax = "proto2";
+
+package base;
+
+message StatusCode {
+  enum Code {
+    OK = 0;
+    CANCELLED = 1;
+    NOT_IMPLEMENTED_ERROR = 2;
+    RUNTIME_ERROR = 3;
+    INTERNAL_ERROR = 4;
+    INVALID_ARGUMENT = 5;
+    INVALID_CONFIGURATION = 6;
+    IO_ERROR = 20;
+    IO_TIMEOUT = 21;
+    IO_END_OF_FILE = 22;
+    GET_ADDR_INFO_FAILED = 23;
+  }
+}
+
+message StatusProto {
+  required StatusCode.Code status_code = 1;
+  repeated string error_msg = 2;
+}
+

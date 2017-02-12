@@ -1,0 +1,6 @@
+package points;
+
+message Point {
+  optional int32 x = 1;
+  optional int32 y = 2;
+}
