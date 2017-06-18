@@ -148,7 +148,7 @@ bool ExprValue::Less(const ExprValue& other) const {
   if (t1 != t2) {
     if (t1 == CPPTYPE_DOUBLE || t2 == CPPTYPE_DOUBLE) {
       double d1 = PromoteToDouble();
-      double d2 = PromoteToDouble();
+      double d2 = other.PromoteToDouble();
       return d1 < d2;
     }
     if (t1 == CPPTYPE_INT64) {

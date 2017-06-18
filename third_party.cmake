@@ -4,7 +4,7 @@ include(ExternalProject)
 find_package(Threads REQUIRED)
 
 set(THIRD_PARTY_LIB_DIR "${THIRD_PARTY_DIR}/libs")
-set(THIRD_PARTY_CXX_FLAGS "-std=c++11 -O3 -DNDEBUG -D_GLIBCXX_USE_CXX11_ABI=0 -fPIC")
+set(THIRD_PARTY_CXX_FLAGS "-std=c++11 -O3 -DNDEBUG -D_GLIBCXX_USE_CXX11_ABI=1 -fPIC")
 
 function(add_third_party name)
   CMAKE_PARSE_ARGUMENTS(parsed "NOPARALLEL" "CMAKE_PASS_FLAGS" "" ${ARGN})
@@ -40,6 +40,7 @@ function(add_third_party name)
   string(TOUPPER ${name} uname)
   set("${uname}_INCLUDE_DIR" "${THIRD_PARTY_LIB_DIR}/${name}/include" PARENT_SCOPE)
   set("${uname}_LIB_DIR" "${THIRD_PARTY_LIB_DIR}/${name}/lib" PARENT_SCOPE)
+  file(MAKE_DIRECTORY "${THIRD_PARTY_LIB_DIR}/${name}/include")
 
 endfunction()
 
@@ -175,6 +176,7 @@ add_dependencies(gtest gtest_project)
 
 declare_imported_lib(benchmark ${BENCHMARK_LIB_DIR} benchmark_project)
 declare_shared_lib(cityhash ${CITYHASH_LIB_DIR} cityhash_project)
+declare_shared_lib(gflags ${GFLAGS_LIB_DIR} gflags_project)
 declare_shared_lib(glog ${GLOG_LIB_DIR} glog_project)
 declare_shared_lib(protobuf ${PROTOBUF_LIB_DIR} protobuf_project)
 declare_shared_lib(snappy ${SNAPPY_LIB_DIR} snappy_project)
@@ -191,6 +193,7 @@ file(MAKE_DIRECTORY ${XXHASH_INCLUDE_DIR})
 
 set_property(TARGET benchmark PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${BENCHMARK_INCLUDE_DIR})
 set_property(TARGET cityhash PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${CITYHASH_INCLUDE_DIR})
+set_property(TARGET gflags PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${GFLAGS_INCLUDE_DIR})
 set_property(TARGET glog PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${GLOG_INCLUDE_DIR})
 set_property(TARGET gtest PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${GTEST_INCLUDE_DIR})
 set_property(TARGET protobuf PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${PROTOBUF_INCLUDE_DIR})

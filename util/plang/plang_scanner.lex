@@ -23,6 +23,7 @@
 %}
 [ \t\n]+                            // skip white space chars.
 [0-9]+                         return TOKEN::NUMBER;
+[0-9]*"."[0-9]+                return TOKEN::NUMBER;
 "AND"|"and"|"&&"               return TOKEN::AND_OP;
 "OR"|"or"|"||"                 return TOKEN::OR_OP;
 "<="                           return TOKEN::LE_OP;
