@@ -56,10 +56,10 @@ class LogTest : public testing::Test  {
     Slice contents_;
     bool force_error_;
     bool returned_partial_;
-    StringFile() : force_error_(false), returned_partial_(false) { }
+    StringFile(int retries) : file::ReadonlyFile(retries), force_error_(false), returned_partial_(false) { }
 
-    virtual Status Read(size_t offset, size_t length, strings::Slice* result,
-                        uint8* buffer) override {
+    virtual Status ReadImpl(size_t offset, size_t length, strings::Slice* result,
+                            uint8* buffer) override {
       CHECK(!returned_partial_) << "must not Read() after eof/error";
       if (force_error_) {
         force_error_ = false;
@@ -74,7 +74,7 @@ class LogTest : public testing::Test  {
       return Status::OK;
     }
 
-    virtual base::Status Close() { return Status::OK; }
+    virtual base::Status CloseImpl() { return Status::OK; }
 
     size_t Size() const { return contents_.size(); }
   };
@@ -112,7 +112,7 @@ protected:
   }
 
  public:
-  LogTest() {
+  LogTest() : source_(1) {
     ListWriter::Options options;
     options.block_size_multiplier = 1;
     options.use_compression = false;
@@ -360,12 +360,12 @@ TEST_F(LogTest, RandomRead) {
 TEST_F(LogTest, ReadError) {
   Write("foo");
   ForceError();
-  CaptureStderr();
+  // CaptureStderr();
   ASSERT_EQ("EOF", Read());
 
   ASSERT_GT(DroppedBytes(), 0);
   ASSERT_TRUE(StringPiece(ReportMessage()).contains("read error"));
-  EXPECT_FALSE(GetCapturedStderr().empty());
+  // EXPECT_FALSE(GetCapturedStderr().empty());
 }
 
 TEST_F(LogTest, BadRecordType) {

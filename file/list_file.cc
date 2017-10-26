@@ -18,6 +18,9 @@
 namespace cmprss = util::compressors;
 namespace file {
 
+const char kProtoSetKey[] = "__proto_set__";
+const char kProtoTypeKey[] = "__proto_type__";
+
 cmprss::Method ComprMethod(uint8 m) {
   switch (m) {
     case list_file::kCompressionZlib:

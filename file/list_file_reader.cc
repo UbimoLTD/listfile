@@ -5,6 +5,7 @@
 #include "file/list_file.h"
 
 #include <cstdio>
+#include <google/protobuf/descriptor.h>
 #include <snappy-c.h>
 
 #include "base/commandlineflags.h"
@@ -17,6 +18,8 @@
 DEFINE_bool(list_file_use_mmap, true, "");
 
 namespace file {
+
+namespace gpb = ::google::protobuf;
 
 using base::Status;
 using base::StatusCode;
@@ -406,6 +409,29 @@ bool ListReader::Uncompress(const uint8* data_ptr, uint32* size) {
 
   *size = uncompress_size;
   return true;
+}
+
+namespace internal {
+void ReadProtoRecordsImpl(ListReader *reader_p,
+                          bool(*parse_and_cb)(strings::Slice&&, void *cb2),
+                          void *cb2,
+                          const gpb::Descriptor *desc,
+                          bool need_metadata,
+                          const StringPiece *name) {
+  ListReader& reader = *reader_p;
+  std::string record_buf;
+  strings::Slice record;
+  std::map<std::string, std::string> metadata;
+  std::string name_suffix = name ? StrCat(", path: ", *name) : "";
+  bool has_metadata = reader.GetMetaData(&metadata) && metadata.count(file::kProtoTypeKey);
+  CHECK(has_metadata || !need_metadata) << "Metadata requested but not found" << name_suffix;
+  CHECK(!has_metadata || metadata[file::kProtoTypeKey] == desc->full_name())
+    << "Type mismatch between " << metadata[file::kProtoTypeKey]
+    << " and " << desc->full_name() << name_suffix;
+  while (reader.ReadRecord(&record, &record_buf))
+    CHECK(parse_and_cb(std::move(record), cb2)) << "size: " << record.size()
+      << name_suffix;
+}
 }
 
 }  // namespace file

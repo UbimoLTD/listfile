@@ -20,13 +20,14 @@ base::Status StatusFileError();
 //
 class ReadonlyFile {
  protected:
-  ReadonlyFile() {}
+   ReadonlyFile(int retries) : retries_(retries) {}
  public:
 
   struct Options {
     bool use_mmap = true;
     bool sequential = true;
     bool drop_cache_on_close = true;
+    int retries = 1;
     Options() : use_mmap(true) {}
   };
 
@@ -35,12 +36,12 @@ class ReadonlyFile {
   // Reads upto length bytes and updates the result to point to the data.
   // May use buffer for storing data. In case, EOF reached sets result.size() < length but still
   // returns Status::OK.
-  virtual base::Status Read(size_t offset, size_t length, strings::Slice* result,
-                            uint8* buffer) MUST_USE_RESULT = 0;
+  base::Status Read(size_t offset, size_t length, strings::Slice* result,
+                    uint8* buffer) MUST_USE_RESULT;
 
   // releases the system handle for this file.
   // The object must be deleted.
-  virtual base::Status Close() = 0;
+  base::Status Close();
 
 
   virtual size_t Size() const = 0;
@@ -49,6 +50,12 @@ class ReadonlyFile {
   // The ownership is passed to the caller.
   static base::StatusObject<ReadonlyFile*> Open(StringPiece name,
                                                 const Options& opts = Options()) MUST_USE_RESULT;
+ protected:
+  virtual base::Status ReadImpl(size_t offset, size_t length, strings::Slice* result,
+                                uint8* buffer) MUST_USE_RESULT = 0;
+  virtual base::Status CloseImpl() = 0;
+ private:
+  const int retries_;
 };
 
 // Wrapper class for system functions which handle basic file operations.

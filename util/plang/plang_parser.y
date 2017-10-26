@@ -23,7 +23,7 @@
 %left OR_OP
 %left AND_OP
 %left LE_OP GE_OP '<' '>'
-%left   '=' NE_OP
+%left   '=' NE_OP RLIKE_OP
 %right NOT_OP
                                 // highest precedence
 
@@ -105,6 +105,10 @@ comparison_predicate :
 |   scalar_expr NE_OP scalar_expr
     {
        $$ = new BinOp(BinOp::NOT, new BinOp(BinOp::EQ, $1, $3), nullptr);
+    }
+|   scalar_expr RLIKE_OP scalar_expr
+    {
+      $$ = new BinOp(BinOp::RLIKE, $1, $3);
     }
 |  scalar_expr '<' scalar_expr
    {

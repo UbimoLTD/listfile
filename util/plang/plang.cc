@@ -3,6 +3,8 @@
 //
 #include "util/plang/plang.h"
 
+#include <regex>
+
 #include "base/logging.h"
 #include "strings/util.h"
 #include "util/math/mathutil.h"
@@ -174,6 +176,16 @@ bool ExprValue::Less(const ExprValue& other) const {
   return false;
 }
 
+bool ExprValue::RLike(const ExprValue& other) const {
+  CppType t1 = type, t2 = other.type;
+  CHECK(t1 == CPPTYPE_STRING && t2 == CPPTYPE_STRING);
+
+  // TODO(ORI): Currently we compile the regex over and over again, it would be wiser to
+  //            only compile it once when the regex is a constant.
+  return std::regex_match(val.str.begin(), val.str.end(),
+                          std::regex(other.val.str.begin(), other.val.str.end()));
+}
+
 static void EvalField(Expr::ExprValueCb cb, MsgDscrPair msg_dscr) {
   const gpb::Message* pmsg = msg_dscr.first;
   const gpb::FieldDescriptor* fd = msg_dscr.second;
@@ -264,6 +276,16 @@ void BinOp::eval(const gpb::Message& msg, ExprValueCb cb) const {
                             });
                return !res;
                };
+    break;
+    case RLIKE:
+      local_cb = [this, &res, &msg](const ExprValue& val_left) {
+        right_->eval(msg, [&val_left, &res](const ExprValue& val_right) {
+            if (val_left.RLike(val_right))
+              res = true;
+            return !res;
+          });
+        return !res;
+      };
     break;
     case AND:
         local_cb = [this, &res, &msg](const ExprValue& val_left) {

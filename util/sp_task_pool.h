@@ -148,7 +148,7 @@ template<typename T> using SharedDataOrEmptyTuple_t = typename SharedDataOrEmpty
 
 }  // namespace internal
 
-template<typename Task, typename TaskArgs,
+template<typename Task,
          typename SharedTuple = internal::SharedDataOrEmptyTuple_t<Task> >
 class SingleProducerTaskPool
     : public internal::SingleProducerTaskPoolBase {
@@ -163,6 +163,8 @@ class SingleProducerTaskPool
   static void InitShared(std::false_type, Task& task, SharedTuple& s) {
     task.InitShared(s);
   }
+
+  using TaskArgs = typename base::DecayedTupleFromParams<Task>::type;
 
   struct QueueItem {
     TaskArgs args;
@@ -200,7 +202,7 @@ public:
       /*if (delta/10 > 20) {
         PrintSlowTask(delta/10, item.ts*100);
       }*/
-      task_(std::move(item.args));
+      base::Apply(task_, std::move(item.args));
       return true;
     }
 
@@ -254,11 +256,11 @@ public:
     if (TryRunTask(std::forward<Args>(args)...))
       return;
     // We use TaskArgs to allow element by element initialization of the arguments.
-    RunInline(TaskArgs(std::forward<Args>(args)...));
+    RunInline(std::forward<Args>(args)...);
   }
 
   template<typename ...Args> void RunInline(Args&&... args) {
-    (*calling_thread_task_)(TaskArgs(std::forward<Args>(args)...));
+    (*calling_thread_task_)(std::forward<Args>(args)...);
   }
 
   template<typename ...Args> void SetSharedData(Args&&... args) {
@@ -295,4 +297,3 @@ public:
 }  // namespace util
 
 #endif  // _UTIL_SP_TASK_POOL_H
-

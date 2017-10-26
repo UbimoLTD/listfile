@@ -1,7 +1,7 @@
 // Copyright 2013, Beeri 15.  All rights reserved.
 // Author: Roman Gershman (romange@gmail.com)
 //
-#include "plang.h"
+#include "util/plang/plang.h"
 
 #include "base/logging.h"
 #include "util/plang/addressbook.pb.h"
@@ -111,7 +111,7 @@ TEST_F(PlangTest, Op) {
 
 TEST_F(PlangTest, Scanner) {
   using TOKEN = plang::Parser::token::yytokentype;
-  scan("ABCD 1234 a123+6");
+  scan("ABCD 1234 -2785 a123+6");
   int token = scanner_->lex();
   EXPECT_EQ(TOKEN::IDENTIFIER, token);
   EXPECT_EQ("ABCD", scanner_->matched());
@@ -119,6 +119,10 @@ TEST_F(PlangTest, Scanner) {
   token = scanner_->lex();
   EXPECT_EQ(TOKEN::NUMBER, token);
   EXPECT_EQ("1234", scanner_->matched());
+
+  token = scanner_->lex();
+  EXPECT_EQ(TOKEN::NUMBER, token);
+  EXPECT_EQ("-2785", scanner_->matched());
 
   token = scanner_->lex();
   EXPECT_EQ(TOKEN::IDENTIFIER, token);
@@ -179,6 +183,9 @@ TEST_F(PlangTest, Parse) {
   parse("name = \"Roman\"");
   EXPECT_TRUE(eval(person));
 
+  parse("name RliKE \".*man\"");
+  EXPECT_TRUE(eval(person));
+
   parse("id=6");
   EXPECT_TRUE(eval(person));
 
@@ -192,6 +199,11 @@ TEST_F(PlangTest, Parse) {
   EXPECT_FALSE(eval(person));
 
   person.set_name("Foo");
+  EXPECT_TRUE(eval(person));
+
+  person.set_id(-1089);
+
+  parse("id=-1089");
   EXPECT_TRUE(eval(person));
 }
 

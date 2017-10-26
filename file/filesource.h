@@ -8,6 +8,7 @@
 #include "strings/stringpiece.h"
 #include "util/sinksource.h"
 
+#include <functional>
 #include <memory>
 
 namespace file {
@@ -70,10 +71,13 @@ public:
   // Empty lines are also returned.
   // Returns true if new line was found or false if end of stream was reached.
   bool Next(std::string* result);
+
+  void TEST_set_ignore_newline_at_begin(bool value = true);
 private:
   util::Source* source_ = nullptr;
   Ownership ownership_;
   uint64 line_num_ = 0;
+  bool ignore_newline_at_begin_ = false;
 };
 
 class CsvReader {
@@ -81,14 +85,20 @@ class CsvReader {
   std::function<void(const std::vector<StringPiece>&)> row_cb_;
 public:
   explicit CsvReader(const std::string& filename,
-                     std::function<void(const std::vector<StringPiece>&)> row_cb);
-  void SkipHeader(unsigned rows = 1);
+    std::function<void(const std::vector<StringPiece>&)> row_cb, char delimiter = ',');
 
+  // Indicates to skip lines starts with '#' (Default: false).
+  // Must be called before SkipHeader if you want to skip hashed lines before header!
+  void SetSkipHashMark() { skip_hash_mark_ = true; }
+
+  void SkipHeader(unsigned rows = 1);
   void Run();
 
   bool IsValid() const { return is_valid_; }
 private:
   bool is_valid_ = false;
+  char delimiter_;
+  bool skip_hash_mark_ = false;
 };
 
 }  // namespace file

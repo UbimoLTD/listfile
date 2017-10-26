@@ -32,6 +32,28 @@ namespace sstable {
 class TableBuilder;
 }  // namespace sstable
 
+enum ProtoWriterFormat {LIST_FILE, SSTABLE};
+
+struct ProtoWriterOptions {
+  ProtoWriterFormat format;
+
+  enum CompressMethod {SNAPPY_COMPRESS = 1, ZLIB_COMPRESS = 2, LZ4_COMPRESS = 3} compress_method
+        = LZ4_COMPRESS;
+  uint8 compress_level = 1;
+
+  // if max_entries_per_file > 0 then
+  // ProtoWriter uses filename as prefix for generating upto 10000 shards of data when each
+  // contains upto max_entries_per_file entries.
+  // The file name will be concatenated with "-%04d.lst" suffix for each shard.
+  uint32 max_entries_per_file = 0;
+
+  // Whether to append to the existing file or otherwrite it.
+  bool append = false;
+
+  ProtoWriterOptions() : format(LIST_FILE) {}
+};
+
+
 class ProtoWriter {
   std::unique_ptr<ListWriter> writer_;
   // std::unique_ptr<util::DiskTable> table_;
@@ -48,26 +70,8 @@ class ProtoWriter {
   uint32 shard_index_ = 0;
   std::string base_name_, fd_set_str_;
 public:
-  enum Format {LIST_FILE, SSTABLE};
-
-  struct Options {
-    Format format;
-
-    enum CompressMethod {SNAPPY_COMPRESS = 1, ZLIB_COMPRESS = 2, LZ4_COMPRESS = 3} compress_method
-          = LZ4_COMPRESS;
-    uint8 compress_level = 1;
-
-    // if max_entries_per_file > 0 then
-    // ProtoWriter uses filename as prefix for generating upto 10000 shards of data when each
-    // contains upto max_entries_per_file entries.
-    // The file name will be concatenated with "-%04d.lst" suffix for each shard.
-    uint32 max_entries_per_file = 0;
-
-    // Whether to append to the existing file or otherwrite it.
-    bool append = false;
-
-    Options() : format(LIST_FILE) {}
-  };
+  typedef ProtoWriterFormat Format;
+  typedef ProtoWriterOptions Options;
 
   ProtoWriter(StringPiece filename, const ::google::protobuf::Descriptor* dscr,
               Options opts = Options());
@@ -75,6 +79,7 @@ public:
   ~ProtoWriter();
 
   base::Status Add(const ::google::protobuf::MessageLite& msg);
+  base::Status AddSerialized(const std::string& data);
 
   // Used for key-value tables.
   base::Status Add(strings::Slice key, const ::google::protobuf::MessageLite& msg);
@@ -82,7 +87,7 @@ public:
   base::Status Flush();
 
   const ListWriter* writer() const { return writer_.get();}
-
+  const std::string& GetTypeName() const { return dscr_->full_name(); }
  private:
   Options options_;
 };

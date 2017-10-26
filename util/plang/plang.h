@@ -90,6 +90,7 @@ public:
 
   bool Equal(const ExprValue& other) const;
   bool Less(const ExprValue& other) const;
+  bool RLike(const ExprValue& other) const;
 };
 
 class Expr {
@@ -168,7 +169,7 @@ class BinOp : public Expr {
   std::unique_ptr<Expr> right_;
 
 public:
-  enum Type {EQ, AND, OR, LT, LE, NOT};
+  enum Type {EQ, AND, OR, LT, LE, NOT, RLIKE};
   BinOp(Type t, Expr* l, Expr* r) : left_(l), right_(r), type_(t) {}
 
   virtual void eval(const gpb::Message& msg, ExprValueCb cb) const override;

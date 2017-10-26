@@ -327,7 +327,6 @@ int errfunc(const char *epath, int eerrno) {
 
 vector<string> ExpandFiles(StringPiece path) {
   vector<string> res;
-
   glob_t glob_result;
   int rv = glob(path.data(), 0, errfunc, &glob_result);
   CHECK(!rv || rv == GLOB_NOMATCH) << rv;
@@ -342,7 +341,6 @@ vector<string> ExpandFiles(StringPiece path) {
 // Similar to ExpandFiles but also returns statistics about files sizes and timestamps.
 base::Status StatFilesSafe(StringPiece path, std::vector<file::StatShort>* res) {
   CHECK_NOTNULL(res);
-
   glob_t glob_result;
   int rv = glob(path.data(), 0, errfunc, &glob_result);
   if (rv && rv != GLOB_NOMATCH) {
@@ -359,7 +357,6 @@ base::Status StatFilesSafe(StringPiece path, std::vector<file::StatShort>* res) 
     }
   }
   globfree(&glob_result);
-
   return base::Status::OK;
 }
 
@@ -396,6 +393,8 @@ void CompressToGzip(StringPiece file, uint8_t compress_level) {
     offs += result.size();
   }
   CHECK(src.obj->Close().ok());
+  delete src.obj;
+
   gzclose_w(dest);
   CHECK(file::Delete(file));
 }
@@ -440,5 +439,25 @@ bool IsFileDirOrDie(const string& path) {
   }
 }
 
+
+
+TempDirDeleter::~TempDirDeleter() {
+  if (!name_.empty()) {
+    file_util::DeleteRecursively(name_);
+  }
+}
+
+string TempDirDeleter::GetTempDir() {
+  if (name_.empty()) {
+    char s[] = "ubimo_tempdirXXXXXX";
+    CHECK(mkdtemp(s)) << strerror(errno);
+    name_ = s;
+
+    // Stick a file in the directory that tells people what this is, in case
+    // we abort and don't get a chance to delete it.
+    file_util::WriteStringToFileOrDie("", name_ + "/TEMP_DIR_FILE");
+  }
+  return name_;
+}
 
 }  // namespace file_util

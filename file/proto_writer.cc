@@ -19,9 +19,6 @@ using std::string;
 
 namespace file {
 
-const char kProtoSetKey[] = "__proto_set__";
-const char kProtoTypeKey[] = "__proto_type__";
-
 namespace gpb = ::google::protobuf;
 
 inline uint8 CompressType(ProtoWriter::Options::CompressMethod m) {
@@ -90,8 +87,13 @@ ProtoWriter::~ProtoWriter() {
 }
 
 util::Status ProtoWriter::Add(const ::google::protobuf::MessageLite& msg) {
-  CHECK(writer_);
   CHECK_EQ(dscr_->full_name(), msg.GetTypeName());
+
+  return AddSerialized(msg.SerializeAsString());
+}
+
+util::Status ProtoWriter::AddSerialized(const std::string& data) {
+  CHECK(writer_);
   if (!was_init_) {
     RETURN_IF_ERROR(writer_->Init());
     was_init_ = true;
@@ -106,7 +108,7 @@ util::Status ProtoWriter::Add(const ::google::protobuf::MessageLite& msg) {
     writer_->AddMeta(kProtoTypeKey, dscr_->full_name());
     RETURN_IF_ERROR(writer_->Init());
   }
-  return writer_->AddRecord(msg.SerializeAsString());
+  return writer_->AddRecord(data);
 }
 
 util::Status ProtoWriter::Add(strings::Slice key, const ::google::protobuf::MessageLite& msg) {

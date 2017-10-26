@@ -11,9 +11,14 @@
 #include "file/file.h"
 #include "file/list_file_format.h"
 #include "strings/slice.h"
+#include "strings/strcat.h"
 #include "util/sinksource.h"
 
+
+
 namespace file {
+
+extern const char kProtoSetKey[], kProtoTypeKey[];
 
 class ListWriter {
  public:
@@ -194,28 +199,41 @@ private:
   void operator=(const ListReader&) = delete;
 };
 
-template<typename T> void ReadProtoRecords(ReadonlyFile* file,
-                                           std::function<void(T&&)> cb) {
-  ListReader reader(file, TAKE_OWNERSHIP);
-  std::string record_buf;
-  strings::Slice record;
-  while (reader.ReadRecord(&record, &record_buf)) {
-    T item;
-    CHECK(item.ParseFromArray(record.data(), record.size()));
-    cb(std::move(item));
-  }
+template<typename T> void ReadProtoRecords(StringPiece name,
+                                           std::function<void(T&&)> cb,
+                                           bool need_metadata = false) {
+  ListReader reader(name);
+  ReadProtoRecords(&reader, cb, need_metadata, &name);
 }
 
-template<typename T> void ReadProtoRecords(StringPiece name,
-                                           std::function<void(T&&)> cb) {
-  ListReader reader(name);
-  std::string record_buf;
-  strings::Slice record;
-  while (reader.ReadRecord(&record, &record_buf)) {
+template<typename T> void ReadProtoRecords(ReadonlyFile* file,
+                                           std::function<void(T&&)> cb,
+                                           bool need_metadata = false) {
+  ListReader reader(file, TAKE_OWNERSHIP);
+  ReadProtoRecords(&reader, cb, need_metadata);
+}
+
+namespace internal {
+void ReadProtoRecordsImpl(ListReader *reader_p,
+                          bool(*parse_and_cb)(strings::Slice&&, void *cb2),
+                          void *cb2,
+                          const google::protobuf::Descriptor *desc,
+                          bool need_metadata,
+                          const StringPiece *name);
+}
+
+template<typename T> void ReadProtoRecords(ListReader *reader_p,
+                                           std::function<void(T&&)> cb,
+                                           bool need_metadata,
+                                           const StringPiece *name = nullptr) {
+  bool(*parse_and_cb)(strings::Slice&&, void *)([](strings::Slice &&record, void *cb2) {
     typename std::remove_const<T>::type item;
-    CHECK(item.ParseFromArray(record.data(), record.size()));
-    cb(std::move(item));
-  }
+    if (!item.ParseFromArray(record.data(), record.size()))
+      return false;
+    (*(decltype(cb)*)cb2)(std::move(item));
+    return true;
+  });
+  internal::ReadProtoRecordsImpl(reader_p, parse_and_cb, &cb, T::descriptor(), need_metadata, name);
 }
 
 template<typename T> base::Status SafeReadProtoRecords(StringPiece name,

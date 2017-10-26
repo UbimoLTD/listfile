@@ -205,7 +205,8 @@ class PosixMmapReadonlyFile : public ReadonlyFile {
   size_t mmap_size() const { return std::min(kMaxMmapSize, sz_ - mmap_offs_); }
 
  public:
-  PosixMmapReadonlyFile(int fd, const uint8* base, size_t sz) : fd_(fd), base_(base), sz_(sz) {
+  PosixMmapReadonlyFile(int fd, const uint8* base, size_t sz, int retries)
+    : ReadonlyFile(retries), fd_(fd), base_(base), sz_(sz) {
   }
 
   virtual ~PosixMmapReadonlyFile() {
@@ -215,16 +216,16 @@ class PosixMmapReadonlyFile : public ReadonlyFile {
     }
   }
 
-  Status Read(size_t offset, size_t length, StringPiece* result, uint8* buffer) override;
+  Status ReadImpl(size_t offset, size_t length, StringPiece* result, uint8* buffer) override;
 
-  Status Close() override;
+  Status CloseImpl() override;
 
   size_t Size() const override {
     return sz_;
   }
 };
 
-Status PosixMmapReadonlyFile::Read(
+Status PosixMmapReadonlyFile::ReadImpl(
     size_t offset, size_t length, StringPiece* result, uint8* buf) {
   Status s;
   result->clear();
@@ -274,7 +275,7 @@ Status PosixMmapReadonlyFile::Read(
 }
 
 
-Status PosixMmapReadonlyFile::Close() {
+Status PosixMmapReadonlyFile::CloseImpl() {
   if (fd_ > 0) {
     posix_fadvise(fd_, 0, 0, POSIX_FADV_DONTNEED);
     close(fd_);
@@ -295,8 +296,8 @@ class PosixReadFile: public ReadonlyFile {
   const size_t file_size_;
   bool drop_cache_;
  public:
-  PosixReadFile(int fd, size_t sz, int advice, bool drop) : fd_(fd), file_size_(sz),
-          drop_cache_(drop) {
+  PosixReadFile(int fd, size_t sz, int advice, bool drop, int retries)
+      : ReadonlyFile(retries), fd_(fd), file_size_(sz), drop_cache_(drop) {
     posix_fadvise(fd_, 0, 0, advice);
   }
 
@@ -304,7 +305,7 @@ class PosixReadFile: public ReadonlyFile {
     WARN_IF_ERROR(Close());
   }
 
-  Status Close() override {
+  Status CloseImpl() override {
     if (fd_) {
       if (drop_cache_)
         posix_fadvise(fd_, 0, 0, POSIX_FADV_DONTNEED);
@@ -314,7 +315,7 @@ class PosixReadFile: public ReadonlyFile {
     return Status::OK;
   }
 
-  Status Read(size_t offset, size_t length, Slice* result, uint8* buffer) override {
+  Status ReadImpl(size_t offset, size_t length, Slice* result, uint8* buffer) override {
     result->clear();
     if (length == 0) return Status::OK;
     if (offset > file_size_) {
@@ -332,30 +333,58 @@ class PosixReadFile: public ReadonlyFile {
   size_t Size() const override { return file_size_; }
 };
 
+base::Status ReadonlyFile::Read(size_t offset, size_t length, strings::Slice* result,
+                                uint8* buffer) {
+  int retries = retries_;
+  base::Status status;
+  while (retries-- > 0) {
+    status = ReadImpl(offset, length, result, buffer);
+    if (status.ok())
+      return status;
+  }
+  return status;
+}
+
+base::Status ReadonlyFile::Close() {
+  int retries = retries_;
+  base::Status status;
+  while (retries-- > 0) {
+    status = CloseImpl();
+    if (status.ok())
+      return status;
+  }
+  return status;
+}
+
 base::StatusObject<ReadonlyFile*> ReadonlyFile::Open(StringPiece name, const Options& opts) {
-  int fd = open(name.data(), O_RDONLY);
-  if (fd < 0) {
-    return StatusFileError();
-  }
-  struct stat sb;
-  if (fstat(fd, &sb) < 0) {
-    close(fd);
-    return StatusFileError();
-  }
-  if (!opts.use_mmap || sb.st_size < 4096) {
-    int advice = opts.sequential ? POSIX_FADV_SEQUENTIAL : POSIX_FADV_RANDOM;
-    return new PosixReadFile(fd, sb.st_size, advice, opts.drop_cache_on_close);
-  }
+  int retries = opts.retries;
+  while (retries-- > 0) {
+    int fd = open(name.data(), O_RDONLY);
+    if (fd < 0) {
+      continue;
+    }
+    struct stat sb;
+    if (fstat(fd, &sb) < 0) {
+      close(fd);
+      continue;
+    }
+    if (!opts.use_mmap || sb.st_size < 4096) {
+      int advice = opts.sequential ? POSIX_FADV_SEQUENTIAL : POSIX_FADV_RANDOM;
+      return new PosixReadFile(fd, sb.st_size, advice, opts.drop_cache_on_close, opts.retries);
+    }
 
-  // MAP_NORESERVE - we do not want swap space for this mmap. Also we allow
-  // overcommitting here (see proc(5)) because this mmap is not allocated from RAM.
-  const uint8* base = MmapFile(fd, sb.st_size, 0);
+    // MAP_NORESERVE - we do not want swap space for this mmap. Also we allow
+    // overcommitting here (see proc(5)) because this mmap is not allocated from RAM.
+    const uint8* base = MmapFile(fd, sb.st_size, 0);
 
-  if (base == MAP_FAILED) {
-    VLOG(1) << "Mmap failed " << strerror(errno);
-    return StatusFileError();
+    if (base == MAP_FAILED) {
+      VLOG(1) << "Mmap failed " << strerror(errno);
+      close(fd);
+      continue;
+    }
+    return new PosixMmapReadonlyFile(fd, base, sb.st_size, opts.retries);
   }
-  return new PosixMmapReadonlyFile(fd, base, sb.st_size);
+  return StatusFileError();
 }
 
 

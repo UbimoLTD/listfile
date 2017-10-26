@@ -96,10 +96,9 @@ add_third_party(
 )
 
 set(SNAPPY_DIR "${THIRD_PARTY_LIB_DIR}/snappy")
-add_third_party(snappy GIT_REPOSITORY https://github.com/google/snappy.git
-  PATCH_COMMAND ./autogen.sh
-  CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=${THIRD_PARTY_LIB_DIR}/snappy
-      CXXFLAGS=${THIRD_PARTY_CXX_FLAGS}
+add_third_party(snappy
+  GIT_REPOSITORY https://github.com/google/snappy.git
+  GIT_TAG 1.1.7
 )
 
 add_third_party(
@@ -179,7 +178,7 @@ declare_shared_lib(cityhash ${CITYHASH_LIB_DIR} cityhash_project)
 declare_shared_lib(gflags ${GFLAGS_LIB_DIR} gflags_project)
 declare_shared_lib(glog ${GLOG_LIB_DIR} glog_project)
 declare_shared_lib(protobuf ${PROTOBUF_LIB_DIR} protobuf_project)
-declare_shared_lib(snappy ${SNAPPY_LIB_DIR} snappy_project)
+declare_imported_lib(snappy ${SNAPPY_LIB_DIR} snappy_project)
 declare_imported_lib(xxhash ${XXHASH_LIB_DIR} xxhash_project)
 
 file(MAKE_DIRECTORY ${BENCHMARK_INCLUDE_DIR})

@@ -109,6 +109,15 @@ class TempFile {
 };
 
 
+// Creates a temporary directory on demand and deletes it when the process quits.
+class TempDirDeleter {
+ public:
+  TempDirDeleter() {}
+  ~TempDirDeleter();
+  std::string GetTempDir();
+ private:
+  std::string name_;
+};
 
 };
 

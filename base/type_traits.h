@@ -1,8 +1,8 @@
-
 #ifndef BEERI_BASE_TYPE_TRAITS_H_
 #define BEERI_BASE_TYPE_TRAITS_H_
 
 #include <type_traits>
+#include <tuple>
 
 namespace base {
 
@@ -13,7 +13,123 @@ template <typename... Ts> struct voider { using type = void; };
 
 template <typename... Ts> using void_t = typename voider<Ts...>::type;
 
+// based on https://functionalcpp.wordpress.com/2013/08/05/function-traits/
+template <class F> struct DecayedTupleFromParams;
+template <class C, class R, class... Args> struct DecayedTupleFromParams<R(C::*)(Args...)> {
+  typedef std::tuple<typename std::decay<Args>::type...> type;
+};
+template <class C, class R, class... Args> struct DecayedTupleFromParams<R(C::*)(Args...) const> {
+  typedef std::tuple<typename std::decay<Args>::type...> type;
+};
+template <class C>
+struct DecayedTupleFromParams : public DecayedTupleFromParams<decltype(&C::operator())> {};
+
+namespace internal {
+
+template <class F, class TUP> struct Applier;
+
+// 6 params
+template <class C, class R, class T1, class T2, class T3, class T4, class T5, class T6, class TUP>
+struct Applier<R(C::*)(T1, T2, T3, T4, T5, T6), TUP> {
+  using TUP0 = typename std::remove_reference<TUP>::type;
+  template <class C2>
+  static R call(C2&& c, TUP0&& x) {
+    return c(std::move(std::get<0>(x)),
+             std::move(std::get<1>(x)),
+             std::move(std::get<2>(x)),
+             std::move(std::get<3>(x)),
+             std::move(std::get<4>(x)),
+             std::move(std::get<5>(x)));
+  }
+};
+template <class C, class R, class T1, class T2, class T3, class T4, class T5, class T6, class TUP>
+struct Applier<R(C::*)(T1, T2, T3, T4, T5, T6) const, TUP> : public Applier<R(C::*)(T1, T2, T3, T4, T5, T6), TUP> {};
+
+// 5 params
+template <class C, class R, class T1, class T2, class T3, class T4, class T5, class TUP>
+struct Applier<R(C::*)(T1, T2, T3, T4, T5), TUP> {
+  using TUP0 = typename std::remove_reference<TUP>::type;
+  template <class C2>
+  static R call(C2&& c, TUP0&& x) {
+    return c(std::move(std::get<0>(x)),
+             std::move(std::get<1>(x)),
+             std::move(std::get<2>(x)),
+             std::move(std::get<3>(x)),
+             std::move(std::get<4>(x)));
+  }
+};
+template <class C, class R, class T1, class T2, class T3, class T4, class T5, class TUP>
+struct Applier<R(C::*)(T1, T2, T3, T4, T5) const, TUP> : public Applier<R(C::*)(T1, T2, T3, T4, T5), TUP> {};
+
+// 4 params
+template <class C, class R, class T1, class T2, class T3, class T4, class TUP>
+struct Applier<R(C::*)(T1, T2, T3, T4), TUP> {
+  using TUP0 = typename std::remove_reference<TUP>::type;
+  template <class C2>
+  static R call(C2&& c, TUP0&& x) {
+    return c(std::move(std::get<0>(x)),
+             std::move(std::get<1>(x)),
+             std::move(std::get<2>(x)),
+             std::move(std::get<3>(x)));
+  }
+};
+template <class C, class R, class T1, class T2, class T3, class T4, class TUP>
+struct Applier<R(C::*)(T1, T2, T3, T4) const, TUP> : public Applier<R(C::*)(T1, T2, T3, T4), TUP> {};
+
+// 3 params
+template <class C, class R, class T1, class T2, class T3, class TUP>
+struct Applier<R(C::*)(T1, T2, T3), TUP> {
+  using TUP0 = typename std::remove_reference<TUP>::type;
+  template <class C2>
+  static R call(C2&& c, TUP0&& x) {
+    return c(std::move(std::get<0>(x)),
+             std::move(std::get<1>(x)),
+             std::move(std::get<2>(x)));
+  }
+};
+template <class C, class R, class T1, class T2, class T3, class TUP>
+struct Applier<R(C::*)(T1, T2, T3) const, TUP> : public Applier<R(C::*)(T1, T2, T3), TUP> {};
+
+// 2 params
+template <class C, class R, class T1, class T2, class TUP>
+struct Applier<R(C::*)(T1, T2), TUP> {
+  using TUP0 = typename std::remove_reference<TUP>::type;
+  template <class C2>
+  static R call(C2&& c, TUP0&& x) {
+    return c(std::move(std::get<0>(x)),
+             std::move(std::get<1>(x)));
+  }
+};
+template <class C, class R, class T1, class T2, class TUP>
+struct Applier<R(C::*)(T1, T2) const, TUP> : public Applier<R(C::*)(T1, T2), TUP> {};
+
+// 1 param
+template <class C, class R, class T1, class TUP>
+struct Applier<R(C::*)(T1), TUP> {
+  using TUP0 = typename std::remove_reference<TUP>::type;
+  template <class C2>
+  static R call(C2&& c, TUP0&& x) {
+    return c(std::move(std::get<0>(x)));
+  }
+};
+template <class C, class R, class T1, class TUP>
+struct Applier<R(C::*)(T1) const, TUP> : public Applier<R(C::*)(T1), TUP> {};
+
+// forward object refs to their objects
+template <class C, class TUP> struct Applier<C&,TUP> : public Applier<C,TUP> {};
+
+// forward objects to their member functions
+template <class C, class TUP> struct Applier : public Applier<decltype(&C::operator()), TUP> {};
+
+} // namespace internal
+
+template <class C, class TUP>
+inline void Apply(C &&c, TUP &&tup) {
+  static_assert(!std::is_lvalue_reference<TUP>::value, "Currently Apply only supported for rvalue ref TUP");
+  internal::Applier<C, TUP>::call(std::forward<C>(c), std::forward<TUP>(tup));
 }
+
+} // namespace base
 
 // Right now these macros are no-ops, and mostly just document the fact
 // these types are PODs, for human use.  They may be made more contentful
@@ -60,7 +176,5 @@ template <typename T> struct Type<T, ::base::void_t<typename T::member> > {   \
       public:                                                                             \
         static Signature Get() { return Internal<T>(0); }                                 \
     }
-
-
 
 #endif  // BEERI_BASE_TYPE_TRAITS_H_

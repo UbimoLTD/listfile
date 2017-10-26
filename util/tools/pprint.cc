@@ -103,7 +103,7 @@ bool ShouldSkip(const gpb::Message& msg, const FdPath& fd_path) {
     return false;
   const string* val = nullptr;
   string buf;
-  auto cb = [&val, &buf](const gpb::Message& msg, const gpb::FieldDescriptor* fd, int) {
+  auto cb = [&val, &buf](const gpb::Message& msg, const gpb::FieldDescriptor* fd, int, int) {
     const gpb::Reflection* refl = msg.GetReflection();
     val = &refl->GetStringReference(msg, fd, &buf);
   };
@@ -264,7 +264,7 @@ int main(int argc, char **argv) {
         printer.reset(new Printer(tmp_msg->GetDescriptor()));
       }
 
-      using TaskPool = util::SingleProducerTaskPool<PrintTask, string>;
+      using TaskPool = util::SingleProducerTaskPool<PrintTask>;
       std::unique_ptr<TaskPool> pool;
       pool.reset(new TaskPool("pool", 10));
 

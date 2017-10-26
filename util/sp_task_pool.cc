@@ -17,7 +17,6 @@ namespace internal {
 
 void SingleProducerTaskPoolBase::ThreadInfo::Join() {
   if (d.thread_id) {
-    pthread_cancel(d.thread_id);
     PTHREAD_CHECK(join(d.thread_id, nullptr));
     d.thread_id = 0;
   }
@@ -82,7 +81,7 @@ unsigned SingleProducerTaskPoolBase::FindMostFreeThread() const {
   uint32 min_score = kuint32max;
   unsigned index = 0;
   for (unsigned i = 0; i < threads_.size(); ++i) {
-    uint32 score = thread_interfaces_[i]->QueueSize();
+    uint32 score = thread_interfaces_[i]->QueueSize() * 2;
     if (threads_[i].d.has_tasks) {
       ++score;
     }
@@ -168,6 +167,7 @@ void* SingleProducerTaskPoolBase::ThreadRoutine(void* arg) {
       }
     }
   }
+
   char buf[30] = {0};
   pthread_getname_np(pthread_self(), buf, sizeof buf);
   VLOG(1) << "Finishing running SingleProducerTaskPoolBase thread " << buf;
